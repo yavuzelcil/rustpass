@@ -3,6 +3,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::fs::File;
 
 #[derive(Parser)]
 #[command(name = "rustpass")]
@@ -27,7 +28,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands.Add {
+        Commands::Add {
             name,
             password,
             recipient,
@@ -41,13 +42,15 @@ fn main() -> Result<()> {
 
 
 fn add_secret(name: &str, password: &str, recipient: &str, output: &PathBuf) -> Result<()> {
-    let recipient = recipient.parse::<x25519::Recipient>()?;
-    let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)]);
+    let recipient = recipient.parse::<x25519::Recipient>()
+        .map_err(|e| anyhow::anyhow!("Failed to parserecipient: {}",e))?;
+    let encryptor = Encryptor::with_recipients(vec![Box::new(recipient)])
+        .expect("Failed to create encryptor");
 
     let mut output_file = File::create(output)?;
     let mut writer = encryptor.wrap_output(&mut output_file)?;
     
-    wirteln!(writer, "{}: {}", name, password)?;
+    writeln!(writer, "{}: {}", name, password)?;
     writer.finish()?;
 
     println!("[+] Password added and encrypted to '{}'", output.display());
